@@ -11,6 +11,8 @@ import uuid
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from graph import build_source_list
+
 load_dotenv()
 client = OpenAI()
 
@@ -91,10 +93,11 @@ def run_baseline(question, budget_chars=None, model=None, run_id=None):
     with open(os.path.join(HERE, "output", "runs.jsonl"), "a", encoding="utf-8") as f:
         f.write(json.dumps(log, ensure_ascii=False) + "\n")
 
+    sources = build_source_list(log["sections"], {"solo": {"draft": draft}}, corpus)
     report_path = os.path.join(HERE, "output", "reports", f"{run_id}.md")
     os.makedirs(os.path.dirname(report_path), exist_ok=True)
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write(f"# {question}\n\n{draft}\n")
+        f.write(f"# {question}\n\n{draft}\n\n---\n\n## 출처\n\n{sources}\n")
 
     return {"report": draft, "log": log, "report_path": report_path}
 

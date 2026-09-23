@@ -4,6 +4,7 @@
 """
 import json
 import os
+import re
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -186,11 +187,31 @@ JSON으로만 답하라: {"insufficient": true/false, "reason": "부족하면 �
 
 # ---------- ④ 종합 ----------
 
-def compile_report(question, sections, drafts, prior_drafts=None):
+def build_source_list(sections, drafts, corpus):
+    """원고에 실제로 인용된 [id]만 등장 순서대로 모아 출처 목록을 만든다(배정만 되고 안 쓰인 자료는 안 넣는다)."""
+    by_id = docs_by_id(corpus)
+    cited_ids = []
+    for s in sections:
+        for m in re.findall(r"\[\s*([A-Za-z0-9_]+)\s*\]", drafts[s["section_id"]]["draft"]):
+            if m not in cited_ids:
+                cited_ids.append(m)
+
+    lines = []
+    for cid in cited_ids:
+        d = by_id.get(cid)
+        if not d:
+            lines.append(f"- `{cid}` — (코퍼스에 없는 id: 인용 오류)")
+            continue
+        lines.append(f"- **[{cid}]** {d['title']} — {d['source']} ({d['date']}) · {d['url']}")
+    return "\n".join(lines)
+
+
+def compile_report(question, sections, drafts, corpus, prior_drafts=None):
     """두 번째 원고가 나오면: 인용이 있던 절은 새 원고로 교체하되, 재파견 이력을 output에 남긴다.
     (첫 원고를 무조건 덮어쓰지 않는다 — 점검에서 '충분'으로 판정된 절은 그대로 둔다.)"""
     body = "\n\n".join(f"## {s['topic']} ({s['role_id']})\n\n{drafts[s['section_id']]['draft']}" for s in sections)
-    return f"# {question}\n\n{body}\n"
+    sources = build_source_list(sections, drafts, corpus)
+    return f"# {question}\n\n{body}\n\n---\n\n## 출처\n\n{sources}\n"
 
 
 # ---------- 실행 파이프라인 ----------
@@ -233,7 +254,7 @@ def run(question, run_id=None, ablation=None, tag="full"):
 
     revised_sections = list(revision_notes.keys())
 
-    report = compile_report(question, sections, drafts)
+    report = compile_report(question, sections, drafts, corpus)
 
     subagent_chars_seen = {sid: d["chars_read"] for sid, d in drafts.items()}
     peer_awareness_chars = {sid: d["peer_awareness_chars"] for sid, d in drafts.items()}

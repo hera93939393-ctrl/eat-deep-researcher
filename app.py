@@ -7,7 +7,7 @@ import os
 
 import streamlit as st
 
-from graph import DEFAULT_ABLATION, run
+from graph import DEFAULT_ABLATION, build_source_list, run
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -112,6 +112,11 @@ def render_run(log, corpus):
     st.markdown("### 최종 종합본")
     body = "\n\n".join(f"## {s['role_id']}\n\n{s['draft']}" for s in log["sections"])
     st.markdown(body)
+
+    drafts_by_id = {s["section_id"]: {"draft": s["draft"]} for s in log["sections"]}
+    sources = build_source_list(log["sections"], drafts_by_id, corpus)
+    st.markdown("### 출처")
+    st.markdown(sources if sources else "_(인용된 자료 없음)_")
 
 
 st.title("eaT 제도 이슈 딥리서처 — 데모")
