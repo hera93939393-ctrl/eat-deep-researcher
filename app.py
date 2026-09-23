@@ -41,6 +41,37 @@ def load_runs():
         return [json.loads(line) for line in f if line.strip()]
 
 
+def interpret_isolation(coord, total, corpus_total):
+    """숫자만 던지지 않고, 그게 뭘 뜻하는지 사람 말로 바로 풀어준다."""
+    if coord is None:
+        return "이 실행은 혼자 하는 대조군(baseline)이라 코디네이터-서브에이전트 분리 자체가 없다 — 이 지표는 정의되지 않는다."
+
+    ratio = coord / total if total else None
+    lines = []
+
+    if coord > corpus_total:
+        lines.append(
+            f"⚠️ 코디네이터가 본 글자 수({coord:,}자)가 **코퍼스 전체({corpus_total:,}자)보다도 많다** — "
+            f"목차만 본 게 아니라 문서 본문을 통째로 봤다는 뜻이다(isolation 장치가 꺼졌을 때 나타나는 패턴)."
+        )
+    elif ratio is not None and ratio >= 1:
+        lines.append(
+            f"⚠️ 코디네이터가 본 글자 수가 서브에이전트가 읽은 총량보다 **많다**(비율 {ratio:.2f}) — "
+            "'코디네이터는 목차만, 서브에이전트는 본문을' 이라는 격리 원칙이 이번 실행에서는 지켜지지 않았다."
+        )
+    elif ratio is not None and ratio < 0.6:
+        lines.append(
+            f"✅ 코디네이터가 본 글자 수가 서브에이전트 총량의 {ratio:.0%} 수준으로 훨씬 작다 — "
+            "코디네이터는 제목·카테고리 같은 목차 정보만 보고, 실제 본문 읽기는 서브에이전트에게 맡겼다는 뜻이다(격리 원칙이 지켜짐)."
+        )
+    else:
+        lines.append(
+            f"코디네이터가 본 글자 수가 서브에이전트 총량의 {ratio:.0%} 수준이다 — 격리가 어느 정도는 되고 있지만 "
+            "완전히 작지는 않다(목차 자체의 분량이 이미 꽤 크다는 뜻일 수 있다)."
+        )
+    return "\n\n".join(lines)
+
+
 def render_isolation(iso):
     coord = iso.get("coordinator_chars_seen")
     total = iso.get("subagent_chars_total")
@@ -49,8 +80,7 @@ def render_isolation(iso):
     c1.metric("코디네이터가 본 글자 수 (목차만)", "해당없음(대조군)" if coord is None else f"{coord:,}자")
     c2.metric("서브에이전트가 읽은 글자 수 합", f"{total:,}자")
     c3.metric("코퍼스 전체 글자 수", f"{corpus_total:,}자")
-    if coord is not None and total:
-        st.caption(f"격리 비율(코디네이터/서브에이전트) = {coord/total:.2f} — 1보다 훨씬 작을수록 '코디네이터는 목차만, 서브에이전트는 본문 전체를' 원칙이 지켜진 것")
+    st.markdown(interpret_isolation(coord, total, corpus_total))
 
 
 def render_run(log, corpus):
