@@ -130,13 +130,17 @@ if mode == "새 질문 실행":
     question = st.text_area("질문", value=default_text, height=100)
 
     st.sidebar.markdown("### 장치 on/off (실험용)")
-    st.sidebar.caption("체크 = 왼쪽 동작, 체크 해제 = 오른쪽 동작")
-    ablation = {
-        "isolation": st.sidebar.checkbox("isolation (코디네이터는 목차만 봄 // 내용까지 다 봄)", value=True),
-        "link_traversal": st.sidebar.checkbox("link_traversal (링크 따라 추가 탐색 // 준 자료만 읽음)", value=True),
-        "peer_awareness": st.sidebar.checkbox("peer_awareness (다른 절 알려주기 // 옆 에이전트가 뭘 쓰는지 모름)", value=True),
-        "revision_check": st.sidebar.checkbox("revision_check (점검·재파견 // 재검사 없음)", value=True),
+    DEVICE_CHOICES = {
+        "isolation": ("코디네이터는 목차만 봄", "내용까지 다 봄"),
+        "link_traversal": ("링크 따라 추가 탐색", "준 자료만 읽음"),
+        "peer_awareness": ("다른 절 알려주기", "옆 에이전트가 뭘 쓰는지 모름"),
+        "revision_check": ("점검·재파견", "재검사 없음"),
     }
+    ablation = {}
+    for device, (on_label, off_label) in DEVICE_CHOICES.items():
+        st.sidebar.caption(device)
+        choice = st.sidebar.radio(device, [on_label, off_label], horizontal=True, label_visibility="collapsed", key=f"ablation_{device}")
+        ablation[device] = choice == on_label
 
     if st.button("실행", type="primary") and question.strip():
         with st.spinner("코디네이터가 목차를 짜고, 서브에이전트를 파견하는 중..."):
