@@ -35,6 +35,32 @@ def chat(model, system, user, response_format_json=True):
     return resp.choices[0].message.content
 
 
+def safe_chat_json(model, system, user, default, errors, phase):
+    """LLM 호출 + JSON 파싱을 감싼다. API 에러든 JSON 형식 오류든 한 번은 재시도하고,
+    두 번 다 실패하면 안전한 기본값으로 넘어가면서 실패 이력을 errors에 남긴다(전체 실행을 죽이지 않는다)."""
+    last_err = None
+    for attempt in (1, 2):
+        try:
+            raw = chat(model, system, user)
+            return json.loads(raw)
+        except Exception as e:  # API 에러(네트워크·레이트리밋 등) + json.JSONDecodeError 전부 포괄
+            last_err = e
+    errors.append({"phase": phase, "error": f"{type(last_err).__name__}: {last_err}", "attempts": 2})
+    return default
+
+
+def safe_chat_text(model, system, user, errors, phase):
+    """서브에이전트 원고 생성용 — JSON이 아니라 텍스트라 파싱 실패는 없지만, API 호출 자체가 실패할 수 있어 같은 방식으로 감싼다."""
+    last_err = None
+    for attempt in (1, 2):
+        try:
+            return chat(model, system, user, response_format_json=False)
+        except Exception as e:
+            last_err = e
+    errors.append({"phase": phase, "error": f"{type(last_err).__name__}: {last_err}", "attempts": 2})
+    return f"(이 절은 두 차례 호출 실패로 원고를 생성하지 못했다 — {type(last_err).__name__}: {last_err})"
+
+
 # ---------- ① 기획 ----------
 
 DEFAULT_ABLATION = {"isolation": True, "link_traversal": True, "peer_awareness": True, "revision_check": True}
@@ -50,8 +76,9 @@ def full_index(corpus):
     return [{"id": d["id"], "title": d["title"], "category": d["category"], "summary": d["summary"]} for d in corpus["docs"]]
 
 
-def plan_toc(question, corpus, config, ablation=None):
+def plan_toc(question, corpus, config, ablation=None, errors=None):
     ablation = ablation or DEFAULT_ABLATION
+    errors = errors if errors is not None else []
     roles = config["roles"]
     role_names = "\n".join(f"- {r['role_id']}: {r['name']} (홈 카테고리 문서 예: {r['home_docs'][:3]})" for r in roles)
     index = full_index(corpus) if not ablation.get("isolation", True) else shallow_index(corpus)
@@ -72,8 +99,13 @@ def plan_toc(question, corpus, config, ablation=None):
 
 JSON으로만 답하라: {{"sections": [{{"section_id": "...", "role_id": "...", "topic": "한 줄 주제", "start_docs": ["id1","id2"]}}]}}"""
 
-    raw = chat(config["model"]["coordinator_model"], system, f"질문: {question}")
-    plan = json.loads(raw)
+    fallback_docs = [d["id"] for d in corpus["docs"][:5]]
+    fallback_plan = {
+        "sections": [
+            {"section_id": "fallback", "role_id": "GENERAL", "topic": "기획 실패로 인한 기본 절(코퍼스 앞부분 일부)", "start_docs": fallback_docs}
+        ]
+    }
+    plan = safe_chat_json(config["model"]["coordinator_model"], system, f"질문: {question}", fallback_plan, errors, "plan_toc")
     chars_seen = len(system) + len(question)  # 코디네이터가 실제로 본 글자 수(목차+질문. 본문 미포함)
     return plan["sections"], chars_seen, index
 
@@ -127,8 +159,9 @@ def gather_section_docs(section, corpus, budget, ablation=None):
     return kept, running
 
 
-def run_subagent(section, corpus, config, other_sections, revision_note=None, ablation=None):
+def run_subagent(section, corpus, config, other_sections, revision_note=None, ablation=None, errors=None):
     ablation = ablation or DEFAULT_ABLATION
+    errors = errors if errors is not None else []
     docs, chars_read = gather_section_docs(section, corpus, config["budget"], ablation)
     docs_text = "\n\n".join(f"[{d['id']}] {d['title']}\n{d['summary']}" for d in docs)
 
@@ -151,7 +184,7 @@ def run_subagent(section, corpus, config, other_sections, revision_note=None, ab
 
 너의 절 원고를 800~1200자 분량으로 작성하라. 문장 끝마다 근거 문서 id를 [id] 형태로 표기하라."""
 
-    draft = chat(config["model"]["subagent_model"], system, "위 지시에 따라 절 원고를 작성하라.", response_format_json=False)
+    draft = safe_chat_text(config["model"]["subagent_model"], system, "위 지시에 따라 절 원고를 작성하라.", errors, f"run_subagent:{section['section_id']}")
     return {
         "section_id": section["section_id"],
         "role_id": section["role_id"],
@@ -162,12 +195,13 @@ def run_subagent(section, corpus, config, other_sections, revision_note=None, ab
     }
 
 
-def dispatch_all(sections, corpus, config, revision_notes=None, ablation=None):
+def dispatch_all(sections, corpus, config, revision_notes=None, ablation=None, errors=None):
     revision_notes = revision_notes or {}
+    errors = errors if errors is not None else []
     results = {}
     with ThreadPoolExecutor(max_workers=len(sections)) as ex:
         futs = {
-            ex.submit(run_subagent, sec, corpus, config, sections, revision_notes.get(sec["section_id"]), ablation): sec["section_id"]
+            ex.submit(run_subagent, sec, corpus, config, sections, revision_notes.get(sec["section_id"]), ablation, errors): sec["section_id"]
             for sec in sections
         }
         for fut in as_completed(futs):
@@ -178,11 +212,12 @@ def dispatch_all(sections, corpus, config, revision_notes=None, ablation=None):
 
 # ---------- ③ 점검 ----------
 
-def check_section(section, draft_text, config):
+def check_section(section, draft_text, config, errors=None):
+    errors = errors if errors is not None else []
     system = """너는 점검자다. 아래 절 원고가 자기 주제에 비해 부실한지 판단하라(완전성만 본다 — 문체는 보지 마라).
 JSON으로만 답하라: {"insufficient": true/false, "reason": "부족하면 한두 문장으로 무엇이 빠졌는지, 충분하면 빈 문자열"}"""
-    raw = chat(config["model"]["coordinator_model"], system, f"절 주제: {section['topic']}\n\n원고:\n{draft_text}")
-    return json.loads(raw)
+    fallback = {"insufficient": False, "reason": "점검 파싱 실패로 기본 통과 처리(재파견 없이 진행)"}
+    return safe_chat_json(config["model"]["coordinator_model"], system, f"절 주제: {section['topic']}\n\n원고:\n{draft_text}", fallback, errors, f"check_section:{section['section_id']}")
 
 
 # ---------- ④ 종합 ----------
@@ -222,18 +257,20 @@ def run(question, run_id=None, ablation=None, tag="full"):
     corpus = load_json("data/corpus.json")
     config = load_json("config.json")
 
-    sections, coordinator_chars_seen, index = plan_toc(question, corpus, config, ablation)
-    errors = validate_plan(sections, corpus)
+    runtime_errors = []  # safe_chat_json/safe_chat_text가 API 실패·JSON 파싱 실패를 여기 쌓는다(전체 실행은 안 죽는다)
+
+    sections, coordinator_chars_seen, index = plan_toc(question, corpus, config, ablation, runtime_errors)
+    plan_validation_errors = validate_plan(sections, corpus)
     replan_attempts = 0
-    while errors and replan_attempts < 1:
+    while plan_validation_errors and replan_attempts < 1:
         sections, coordinator_chars_seen, index = plan_toc(
-            question + f"\n\n[이전 계획에 존재하지 않는 문서 id가 있었다: {errors}. 목차에 있는 id만 사용해라.]",
-            corpus, config, ablation,
+            question + f"\n\n[이전 계획에 존재하지 않는 문서 id가 있었다: {plan_validation_errors}. 목차에 있는 id만 사용해라.]",
+            corpus, config, ablation, runtime_errors,
         )
-        errors = validate_plan(sections, corpus)
+        plan_validation_errors = validate_plan(sections, corpus)
         replan_attempts += 1
 
-    drafts = dispatch_all(sections, corpus, config, ablation=ablation)
+    drafts = dispatch_all(sections, corpus, config, ablation=ablation, errors=runtime_errors)
 
     rounds = 0
     revision_notes = {}
@@ -241,13 +278,13 @@ def run(question, run_id=None, ablation=None, tag="full"):
         while rounds < config["budget"]["max_revision_rounds"]:
             insufficient = {}
             for sec in sections:
-                verdict = check_section(sec, drafts[sec["section_id"]]["draft"], config)
+                verdict = check_section(sec, drafts[sec["section_id"]]["draft"], config, runtime_errors)
                 if verdict.get("insufficient"):
                     insufficient[sec["section_id"]] = verdict["reason"]
             if not insufficient:
                 break
             resend_sections = [s for s in sections if s["section_id"] in insufficient]
-            new_drafts = dispatch_all(resend_sections, corpus, config, revision_notes=insufficient, ablation=ablation)
+            new_drafts = dispatch_all(resend_sections, corpus, config, revision_notes=insufficient, ablation=ablation, errors=runtime_errors)
             drafts.update(new_drafts)
             revision_notes.update(insufficient)
             rounds += 1
@@ -284,7 +321,8 @@ def run(question, run_id=None, ablation=None, tag="full"):
             "peer_awareness_chars": peer_awareness_chars,
             "total_corpus_chars": total_corpus_chars,
         },
-        "plan_hallucination_errors_before_valid": errors if replan_attempts else [],
+        "plan_hallucination_errors_before_valid": plan_validation_errors if replan_attempts else [],
+        "runtime_errors": runtime_errors,
         "timestamp": time.time(),
     }
 
