@@ -1,0 +1,12 @@
+{
+  "full": [
+    true,
+    true,
+    false
+  ],
+  "no_peer_awareness": [
+    true,
+    false,
+    true
+  ]
+}

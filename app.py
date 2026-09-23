@@ -1,0 +1,122 @@
+"""로컬 데모. 보고서만 보여주지 않고, 절마다 누가(role_id) 무엇을(start_docs/docs_read) 읽고
+무엇을 썼는지(draft), 그리고 격리 증명 수치(코디네이터 vs 서브에이전트가 본 글자 수)까지 함께 보여준다.
+실행: streamlit run app.py
+"""
+import json
+import os
+
+import streamlit as st
+
+from graph import DEFAULT_ABLATION, run
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+st.set_page_config(page_title="eaT 딥리서처 데모", layout="wide")
+
+
+@st.cache_data
+def load_corpus():
+    with open(os.path.join(HERE, "data", "corpus.json"), encoding="utf-8") as f:
+        return json.load(f)
+
+
+@st.cache_data
+def load_questions():
+    with open(os.path.join(HERE, "data", "questions.json"), encoding="utf-8") as f:
+        return json.load(f)
+
+
+def title_of(doc_id, corpus):
+    for d in corpus["docs"]:
+        if d["id"] == doc_id:
+            return f"{doc_id} — {d['title']} ({d['category']})"
+    return doc_id
+
+
+def load_runs():
+    path = os.path.join(HERE, "output", "runs.jsonl")
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def render_isolation(iso):
+    coord = iso.get("coordinator_chars_seen")
+    total = iso.get("subagent_chars_total")
+    corpus_total = iso.get("total_corpus_chars")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("코디네이터가 본 글자 수 (목차만)", "해당없음(대조군)" if coord is None else f"{coord:,}자")
+    c2.metric("서브에이전트가 읽은 글자 수 합", f"{total:,}자")
+    c3.metric("코퍼스 전체 글자 수", f"{corpus_total:,}자")
+    if coord is not None and total:
+        st.caption(f"격리 비율(코디네이터/서브에이전트) = {coord/total:.2f} — 1보다 훨씬 작을수록 '코디네이터는 목차만, 서브에이전트는 본문 전체를' 원칙이 지켜진 것")
+
+
+def render_run(log, corpus):
+    st.subheader(log["question"])
+    st.caption(f"run_id: {log['run_id']} · tag: {log.get('tag', '-')} · 재파견 바퀴: {log.get('revision_rounds_used', 0)}회"
+               + (f" (재파견된 절: {', '.join(log['revised_sections'])})" if log.get("revised_sections") else ""))
+
+    render_isolation(log["isolation"])
+
+    st.markdown("---")
+    st.markdown("### 절별 원고 — 누가 무엇을 읽고 무엇을 썼는가")
+    for sec in log["sections"]:
+        revised_mark = " 🔁재파견됨" if sec["section_id"] in (log.get("revised_sections") or []) else ""
+        with st.expander(f"**{sec['role_id']}** — {sec['section_id']}{revised_mark}"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**배정된 시작자료(start_docs)**")
+                for d in sec["start_docs"]:
+                    st.write("- " + title_of(d, corpus))
+            with col2:
+                st.markdown("**실제로 읽은 자료(docs_read, 링크 탐색 포함)**")
+                for d in sec["docs_read"]:
+                    extra = " 🔗링크로 추가 탐색" if d not in sec["start_docs"] else ""
+                    st.write("- " + title_of(d, corpus) + extra)
+            st.markdown("**원고**")
+            st.write(sec["draft"])
+
+    st.markdown("---")
+    st.markdown("### 최종 종합본")
+    body = "\n\n".join(f"## {s['role_id']}\n\n{s['draft']}" for s in log["sections"])
+    st.markdown(body)
+
+
+st.title("eaT 제도 이슈 딥리서처 — 데모")
+st.caption("공공급식통합플랫폼(eaT) 제도 이슈 코퍼스(33건)를 코디네이터-서브에이전트 구조로 조사해 장문 보고서를 만든다.")
+
+mode = st.sidebar.radio("모드", ["새 질문 실행", "지난 실행 보기"])
+corpus = load_corpus()
+
+if mode == "새 질문 실행":
+    questions = load_questions()["questions"]
+    preset = st.selectbox(
+        "질문 세트에서 고르기(선택 안 해도 됨)",
+        ["(직접 입력)"] + [f"{q['id']}: {q['question']}" for q in questions],
+    )
+    default_text = "" if preset == "(직접 입력)" else preset.split(": ", 1)[1]
+    question = st.text_area("질문", value=default_text, height=100)
+
+    st.sidebar.markdown("### 장치 on/off (실험용)")
+    ablation = {
+        "isolation": st.sidebar.checkbox("isolation (코디네이터는 목차만 봄)", value=True),
+        "link_traversal": st.sidebar.checkbox("link_traversal (링크 따라 추가 탐색)", value=True),
+        "peer_awareness": st.sidebar.checkbox("peer_awareness (다른 절 알려주기)", value=True),
+        "revision_check": st.sidebar.checkbox("revision_check (점검·재파견)", value=True),
+    }
+
+    if st.button("실행", type="primary") and question.strip():
+        with st.spinner("코디네이터가 목차를 짜고, 서브에이전트를 파견하는 중..."):
+            result = run(question, ablation=ablation, tag="demo")
+        render_run(result["log"], corpus)
+
+else:
+    runs = load_runs()
+    if not runs:
+        st.info("아직 output/runs.jsonl이 없습니다. 먼저 '새 질문 실행'을 해보세요.")
+    else:
+        options = [f"{r['run_id']} ({r.get('tag','-')}) — {r['question'][:40]}..." for r in runs]
+        idx = st.selectbox("실행 기록 고르기", range(len(runs)), format_func=lambda i: options[i])
+        render_run(runs[idx], corpus)

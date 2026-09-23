@@ -1,0 +1,31 @@
+{
+  "domain": "공공급식통합플랫폼(eaT) 제도 이슈 연혁",
+  "corpus_path": "data/corpus.json",
+  "questions_path": "data/questions.json",
+
+  "roles": [
+    {"role_id": "HIST", "name": "연혁·확장 분석가", "home_docs": ["h0","h1","h2","h3","h4","h5","h6","h7","h8","h9"]},
+    {"role_id": "FRAUD", "name": "불공정행위·국정감사 분석가", "home_docs": ["f1","f2"]},
+    {"role_id": "HYGIENE", "name": "위생·재계약 실태 분석가", "home_docs": ["y1","y2","y3","y4"]},
+    {"role_id": "CASE", "name": "개별 적발사례 조사관", "home_docs": ["c1","c2","c3","c4","c5"]},
+    {"role_id": "POLICY", "name": "정책·법령 분석가", "home_docs": ["p1","p2","p3","p4"]},
+    {"role_id": "INFRA", "name": "인프라 분석가", "home_docs": ["i1","i2","i3"]},
+    {"role_id": "AUDIT2026", "name": "차기 국감 전망 분석가", "home_docs": ["a1","a2"]},
+    {"role_id": "CRITERIA", "name": "심사기준 대조 분석가", "home_docs": ["k1","k2","k3"]}
+  ],
+
+  "budget": {
+    "max_sections_per_question": 5,
+    "section_budget_docs": 4,
+    "section_budget_chars": 4000,
+    "max_revision_rounds": 2
+  },
+
+  "model": {
+    "coordinator_model": "gpt-4o-mini",
+    "subagent_model": "gpt-4o-mini",
+    "subagent_context_tokens_assumed": 4096
+  },
+
+  "note": "coordinator는 질문마다 roles 중 관련된 것만 선택해 절을 구성한다(모든 질문에 8개 역할을 다 쓰지 않는다 — 형식이 아니라 내용 단위 분업 원칙). home_docs는 기본 시작자료이며, 코디네이터가 질문 성격에 따라 부분집합만 배정하거나 타 역할의 home_docs 일부를 참고자료로 얹어줄 수 있다."
+}
