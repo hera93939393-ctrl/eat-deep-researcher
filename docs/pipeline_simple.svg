@@ -1,0 +1,81 @@
+<svg width="680" height="930" viewBox="0 0 680 930" xmlns="http://www.w3.org/2000/svg" role="img" font-family="sans-serif">
+<title>딥리서처 파이프라인 쉬운 버전</title>
+<desc>질문이 들어오면 코디네이터가 목차만 보고 구상하고, 배정된 자료가 실제로 있는지 확인한 뒤, 여러 전문가를 동시에 파견해 각자 자료를 읽고 원고를 쓰게 한다. 점검자가 부실하다고 판단하면 재파견하고, 충분하면 원고를 이어붙여 보고서를 완성하며 글자수를 기록한다.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<rect width="680" height="930" fill="#ffffff"/>
+
+<ellipse cx="340" cy="40" rx="55" ry="22" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+<text x="340" y="45" text-anchor="middle" font-size="14" fill="#2C2C2A">질문</text>
+
+<line x1="340" y1="62" x2="340" y2="90" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="110" y="92" width="460" height="64" rx="4" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+<text x="340" y="118" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">코디네이터가 목차를 구상한다</text>
+<text x="340" y="138" text-anchor="middle" font-size="12" fill="#5F5E5A">제목만 보고, 본문은 안 봄</text>
+
+<line x1="340" y1="156" x2="340" y2="188" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<polygon points="340,190 510,236 340,282 170,236" fill="#B5D4F4" stroke="#378ADD" stroke-width="0.5"/>
+<text x="340" y="232" text-anchor="middle" font-size="14" font-weight="500" fill="#042C53">배정 자료가</text>
+<text x="340" y="248" text-anchor="middle" font-size="14" font-weight="500" fill="#042C53">실제로 있는가?</text>
+
+<path d="M510,236 C 620,236 620,124 572,124" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="580" y="175" text-anchor="start" font-size="12" fill="#5F5E5A">없음</text>
+<text x="580" y="190" text-anchor="start" font-size="12" fill="#5F5E5A">(최대 1회 다시)</text>
+
+<line x1="340" y1="282" x2="340" y2="314" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="352" y="303" text-anchor="start" font-size="12" fill="#5F5E5A">있음</text>
+
+<rect x="110" y="316" width="460" height="54" rx="4" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+<text x="340" y="348" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">여러 전문가를 동시에 파견한다</text>
+
+<line x1="340" y1="370" x2="340" y2="398" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="90" y="400" width="500" height="140" rx="4" fill="none" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="340" y="420" text-anchor="middle" font-size="12" fill="#5F5E5A">전문가들 — 서로 독립적으로 작업</text>
+
+<rect x="120" y="436" width="200" height="80" rx="4" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="220" y="470" text-anchor="middle" font-size="14" font-weight="500" fill="#04342C">자료+링크 문서</text>
+<text x="220" y="488" text-anchor="middle" font-size="14" font-weight="500" fill="#04342C">읽기</text>
+<text x="220" y="504" text-anchor="middle" font-size="12" fill="#085041">정해진 만큼만</text>
+
+<line x1="320" y1="476" x2="358" y2="476" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="360" y="436" width="200" height="80" rx="4" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="460" y="470" text-anchor="middle" font-size="14" font-weight="500" fill="#04342C">원고를 쓴다</text>
+<text x="460" y="488" text-anchor="middle" font-size="12" fill="#085041">다른 전문가 내용은</text>
+<text x="460" y="504" text-anchor="middle" font-size="12" fill="#085041">모름</text>
+
+<line x1="340" y1="540" x2="340" y2="570" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<polygon points="340,572 510,618 340,664 170,618" fill="#B5D4F4" stroke="#378ADD" stroke-width="0.5"/>
+<text x="340" y="614" text-anchor="middle" font-size="14" font-weight="500" fill="#042C53">원고가</text>
+<text x="340" y="630" text-anchor="middle" font-size="14" font-weight="500" fill="#042C53">부실한가?</text>
+
+<path d="M170,618 C 60,618 60,343 108,343" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="65" y="470" text-anchor="start" font-size="12" fill="#5F5E5A">부실함</text>
+<text x="65" y="485" text-anchor="start" font-size="12" fill="#5F5E5A">(최대 2회</text>
+<text x="65" y="500" text-anchor="start" font-size="12" fill="#5F5E5A">재파견)</text>
+
+<line x1="340" y1="664" x2="340" y2="696" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="352" y="685" text-anchor="start" font-size="12" fill="#5F5E5A">충분함</text>
+
+<rect x="110" y="698" width="460" height="54" rx="4" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+<text x="340" y="730" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">통과한 원고를 이어붙인다</text>
+
+<line x1="340" y1="752" x2="340" y2="780" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="160" y="782" width="360" height="50" rx="4" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+<text x="340" y="803" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">글자수를 기록한다</text>
+<text x="340" y="820" text-anchor="middle" font-size="12" fill="#5F5E5A">코디네이터 대 전문가가 읽은 양</text>
+
+<line x1="340" y1="832" x2="340" y2="860" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<ellipse cx="340" cy="884" rx="60" ry="22" fill="#F1EFE8" stroke="#888780" stroke-width="0.5"/>
+<text x="340" y="889" text-anchor="middle" font-size="14" fill="#2C2C2A">보고서 완성</text>
+</svg>
