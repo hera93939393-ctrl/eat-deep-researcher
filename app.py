@@ -138,7 +138,7 @@ if mode == "새 질문 실행":
     }
     ablation = {}
     for device, (on_label, off_label) in DEVICE_CHOICES.items():
-        st.sidebar.caption(device)
+        st.sidebar.markdown(f"<span style='font-size:1.15em; font-weight:800'>{device}</span>", unsafe_allow_html=True)
         choice = st.sidebar.radio(device, [on_label, off_label], horizontal=True, label_visibility="collapsed", key=f"ablation_{device}")
         ablation[device] = choice == on_label
 
