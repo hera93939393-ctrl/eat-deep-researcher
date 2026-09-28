@@ -41,8 +41,10 @@ def load_runs():
         return [json.loads(line) for line in f if line.strip()]
 
 
-def interpret_isolation(coord, total, corpus_total):
-    """숫자만 던지지 않고, 그게 뭘 뜻하는지 사람 말로 바로 풀어준다."""
+def interpret_isolation(coord, total, corpus_total, isolation_on):
+    """숫자만 던지지 않고, 그게 뭘 뜻하는지 사람 말로 바로 풀어준다.
+    isolation_on을 함께 보는 이유: 비율이 1을 넘는 원인이 두 가지로 갈리기 때문이다 —
+    ① isolation 장치가 실제로 꺼짐(본문을 다 봄) ② 장치는 켜져 있지만 질문이 좁아 서브에이전트 작업량 자체가 작음."""
     if coord is None:
         return "이 실행은 혼자 하는 대조군(baseline)이라 코디네이터-서브에이전트 분리 자체가 없다 — 이 지표는 정의되지 않는다."
 
@@ -54,10 +56,18 @@ def interpret_isolation(coord, total, corpus_total):
             f"⚠️ 코디네이터가 본 글자 수({coord:,}자)가 **코퍼스 전체({corpus_total:,}자)보다도 많다** — "
             f"목차만 본 게 아니라 문서 본문을 통째로 봤다는 뜻이다(isolation 장치가 꺼졌을 때 나타나는 패턴)."
         )
-    elif ratio is not None and ratio >= 1:
+    elif ratio is not None and ratio >= 1 and not isolation_on:
         lines.append(
-            f"⚠️ 코디네이터가 본 글자 수가 서브에이전트가 읽은 총량보다 **많다**(비율 {ratio:.2f}) — "
-            "'코디네이터는 목차만, 서브에이전트는 본문을' 이라는 격리 원칙이 이번 실행에서는 지켜지지 않았다."
+            f"⚠️ 코디네이터가 본 글자 수가 서브에이전트가 읽은 총량보다 **많다**(비율 {ratio:.2f}), 그리고 실제로 "
+            "isolation 장치가 꺼져 있다 — '코디네이터는 목차만, 서브에이전트는 본문을' 이라는 격리 원칙이 이번 "
+            "실행에서는 지켜지지 않았다."
+        )
+    elif ratio is not None and ratio >= 1 and isolation_on:
+        lines.append(
+            f"코디네이터가 본 글자 수가 서브에이전트 총량보다 많다(비율 {ratio:.2f})지만, isolation 장치는 **켜져 있다** "
+            "— 즉 격리 원칙이 깨진 게 아니라, 이번 질문이 좁아서(절이 적고 서브에이전트가 읽을 자료도 적어서) 코디네이터가 "
+            "코퍼스 33건 전체 목차를 훑는 고정비용이 상대적으로 커 보이는 것이다. 이 지표만 보고 격리가 깨졌다고 "
+            "단정하면 안 되는 경우다."
         )
     elif ratio is not None and ratio < 0.6:
         lines.append(
@@ -72,15 +82,16 @@ def interpret_isolation(coord, total, corpus_total):
     return "\n\n".join(lines)
 
 
-def render_isolation(iso):
+def render_isolation(iso, ablation):
     coord = iso.get("coordinator_chars_seen")
     total = iso.get("subagent_chars_total")
     corpus_total = iso.get("total_corpus_chars")
+    isolation_on = (ablation or {}).get("isolation", True)
     c1, c2, c3 = st.columns(3)
     c1.metric("코디네이터가 본 글자 수 (목차만)", "해당없음(대조군)" if coord is None else f"{coord:,}자")
     c2.metric("서브에이전트가 읽은 글자 수 합", f"{total:,}자")
     c3.metric("코퍼스 전체 글자 수", f"{corpus_total:,}자")
-    st.markdown(interpret_isolation(coord, total, corpus_total))
+    st.markdown(interpret_isolation(coord, total, corpus_total, isolation_on))
 
 
 def render_run(log, corpus):
@@ -88,7 +99,7 @@ def render_run(log, corpus):
     st.caption(f"run_id: {log['run_id']} · tag: {log.get('tag', '-')} · 재파견 바퀴: {log.get('revision_rounds_used', 0)}회"
                + (f" (재파견된 절: {', '.join(log['revised_sections'])})" if log.get("revised_sections") else ""))
 
-    render_isolation(log["isolation"])
+    render_isolation(log["isolation"], log.get("ablation"))
 
     st.markdown("---")
     st.markdown("### 절별 원고 — 누가 무엇을 읽고 무엇을 썼는가")
