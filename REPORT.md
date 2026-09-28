@@ -186,6 +186,44 @@ isolation이 꺼진 게 아니라 켜진 채로(라디오 버튼이 '코디네�
   못하는데, 링크 탐색(link_traversal)으로 c4·c5가 가리키는 f1·f2까지 따라가 연대기를 완성했다. entity_tracking형
   질문 하나가 단일 절 + 링크 탐색만으로도 충분히 답변 가능함을 보여준 사례다.
 
+**장치 온오프별 지표 집계(누적 17회 실행)**: 그동안 쌓인 실행 전체에 `metrics.py`를 돌려봤다. 가장 먼저 확인할
+것은 ALARM 3종(`invalid_citation_rate`·`unread_citation_rate`·`plan_id_hallucination_count`)이 **17회 전부 0**
+이라는 점 — 지어낸 인용이나 안 읽은 문서 인용이 한 번도 없었다.
+
+*q3(같은 질문, full×4 vs peer_awareness-off×4)*
+
+| 지표 | full 평균 | peer_awareness-off 평균 |
+|---|---|---|
+| citation_density | 0.63 | 0.58 |
+| assigned_doc_utilization | 0.94 | 0.93 |
+| revision_rate | 0.42(0~0.67로 들쭉날쭉) | **0.67(4회 전부 동일)** |
+
+peer_awareness를 끄면 `revision_rate`가 4회 내내 정확히 0.667(3절 중 2절 항상 재파견)로 나온 반면 full은 매번
+달랐다 — peer_awareness 없이 쓰면 점검자가 "완전성 부족"을 더 일관되게 잡아낸다는 신호일 수 있지만, n=4라 단정은
+아니다.
+
+*q10(같은 질문, full×2 vs isolation-off×1 vs link_traversal-off×1)* — 질문·코퍼스를 고정한 가장 깔끔한 비교다.
+
+| 지표 | full #1 | full #2 | isolation-off | link_traversal-off |
+|---|---|---|---|---|
+| isolation_ratio | 0.50 | 0.53 | **1.86** | 1.35 |
+| assigned_doc_utilization | 0.83 | 0.83 | **0.47** | 0.83 |
+| link_traversal_ratio | 1.0 | 1.0 | 1.0 | **0.0** |
+| cross_section_overlap | 0.19 | 0.19 | 0.24 | **0.0** |
+| citation_density | 0.54 | 0.54 | 0.59 | **0.43** |
+
+full 2회가 0.50/0.53으로 거의 같게 재현된 것부터가 이 지표들이 순수 노이즈만은 아니라는 근거다. 그 위에서: **isolation을
+끄면** 비율이 0.5대→1.86으로 뛰고 `assigned_doc_utilization`도 0.83→0.47로 떨어진다(코디네이터가 본문까지 보고
+나니 시작자료를 더 후하게 배정하고, 그중 실제로 쓰이는 비율은 낮아진 것으로 보인다). **link_traversal을 끄면**
+`link_traversal_ratio`가 정확히 0(장치가 진짜 꺼졌다는 코드 검증), 그 여파로 `cross_section_overlap`도 0(링크로
+옆 절 자료를 못 가져오니 절끼리 겹칠 일이 없음), `citation_density`도 낮아진다(인용할 소스 자체가 준다).
+
+**중요한 한계 하나를 여기서 발견했다**: link_traversal만 껐을 뿐인데 `isolation_ratio`도 0.5→1.35로 함께
+올라갔다. 서브에이전트가 읽는 절대량이 줄면 분모(`subagent_chars_total`)가 작아져 비율이 뛰기 때문이다 — 즉
+`isolation_ratio`는 isolation 장치 하나만의 신호가 아니라 **서브에이전트 독서량을 줄이는 어떤 장치를 꺼도 같이
+움직이는 지표**다. 이 지표 하나만 보고 "isolation이 꺼졌다"고 단정하면 안 된다는 걸(§6 스크린샷에서 이미 한 번
+확인한 것과 같은 맥락으로) 다시 한번 수치로 확인한 셈이다.
+
 ## 8. 프로젝트 회고
 
 **가장 공들인 부분**: 저작권을 지키면서도(원문 그대로 복사 금지) 코퍼스가 실제로 "모델 창을 넘는" 분량이 되도록
